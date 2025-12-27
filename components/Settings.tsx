@@ -20,6 +20,17 @@ export const Settings: React.FC<SettingsProps> = ({ settings, setSettings, onCle
         System Preferences
       </div>
 
+      {/* IPHONE WIDGET GUIDE */}
+      <div className="retro-border bg-black text-white p-4">
+        <div className="text-[9px] font-black uppercase opacity-50 mb-2">IPHONE_WIDGET_GUIDE.DOC</div>
+        <div className="space-y-2 text-[10px] font-bold uppercase leading-tight">
+          <p>1. Open this page in Safari</p>
+          <p>2. Tap the Share icon (square with arrow)</p>
+          <p>3. Select "Add to Home Screen"</p>
+          <p>4. Use the "WIDGET" button in header for instant logging</p>
+        </div>
+      </div>
+
       <div className="retro-border bg-white overflow-hidden">
         <div className="retro-window-header">PLAN_MODIFIER.EXE</div>
         <div className="p-4 space-y-4">
