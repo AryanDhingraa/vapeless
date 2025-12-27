@@ -1,0 +1,18 @@
+
+{
+  "name": "VapeLess Retro",
+  "short_name": "VapeLess",
+  "description": "90s Retro Vape Quit Tracker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3256/3256157.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

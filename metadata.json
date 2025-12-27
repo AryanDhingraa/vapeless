@@ -1,0 +1,7 @@
+{
+  "name": "VapeLess - Quit Tracker",
+  "description": "A comprehensive vape puff counter and quitting assistant designed to help you track usage, save money, and improve your health through AI-powered coaching.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
