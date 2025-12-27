@@ -6,23 +6,12 @@ interface SettingsProps {
   settings: UserSettings;
   setSettings: (s: UserSettings) => void;
   onClearData: () => void;
+  onLogout: () => void;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ settings, setSettings, onClearData }) => {
+export const Settings: React.FC<SettingsProps> = ({ settings, setSettings, onClearData, onLogout }) => {
   const handleChange = (key: keyof UserSettings, value: any) => {
     setSettings({ ...settings, [key]: value });
-  };
-
-  const testNotify = () => {
-    if (!("Notification" in window)) {
-      alert("This browser does not support notifications");
-    } else if (Notification.permission === "granted") {
-      new Notification("VapeLess Test: Keep it up!");
-    } else {
-      Notification.requestPermission().then((permission) => {
-        if (permission === "granted") new Notification("VapeLess Alerts Activated!");
-      });
-    }
   };
 
   return (
@@ -68,33 +57,18 @@ export const Settings: React.FC<SettingsProps> = ({ settings, setSettings, onCle
         </div>
       </div>
 
-      <div className="retro-border bg-white overflow-hidden">
-        <div className="retro-window-header">NOTIFICATIONS.SYS</div>
-        <div className="p-4 space-y-4">
-          <div className="flex items-center justify-between border-b border-black pb-2">
-            <span className="text-[10px] font-bold uppercase">Mode</span>
-            <select 
-              value={settings.notificationMode} 
-              onChange={e => handleChange('notificationMode', e.target.value)}
-              className="font-black text-[10px] outline-none bg-white"
-            >
-              <option value="FIXED">FIXED_TIME</option>
-              <option value="RANDOM">RANDOMIZED</option>
-            </select>
-          </div>
-          <button onClick={testNotify} className="w-full py-2 border-2 border-black text-[10px] font-black uppercase hover:bg-black hover:text-white transition-all">
-            TEST_SIGNAL
-          </button>
-        </div>
+      <div className="space-y-3">
+        <button onClick={onLogout} className="w-full py-4 border-4 border-black font-black hover:bg-black hover:text-white transition-all active:scale-95 uppercase text-xs">
+          Logout_Session
+        </button>
+        <button onClick={onClearData} className="w-full py-4 bg-black text-white font-black hover:invert transition-all active:scale-95 uppercase text-xs">
+          Wipe_Account_Data
+        </button>
       </div>
 
-      <button onClick={onClearData} className="w-full py-4 bg-black text-white font-black hover:invert transition-all active:scale-95 uppercase text-xs">
-        HARD_RESET_SYSTEM
-      </button>
-
       <div className="text-center font-mono text-[8px] uppercase opacity-40">
-        <p>VapeLess Retro v1.2.0-LTS</p>
-        <p>BUILD_DATE: 2024-OCT-12</p>
+        <p>VapeLess Retro v1.2.1-LTS</p>
+        <p>SECURE_AUTH_LAYER_ACTIVE</p>
       </div>
     </div>
   );

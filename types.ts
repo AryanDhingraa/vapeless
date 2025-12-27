@@ -1,4 +1,10 @@
 
+export interface User {
+  id: string;
+  email: string;
+  password?: string; // In a real app, this would be hashed on the server
+}
+
 export interface PuffLog {
   id: string;
   timestamp: number;
@@ -10,11 +16,11 @@ export type PlanDuration = 15 | 20 | 30 | 60;
 export interface UserSettings {
   podCost: number;
   puffsPerPod: number;
-  dailyBudget: number; // This becomes the "Starting Limit"
-  nicotineStrength: number; // mg/mL
+  dailyBudget: number;
+  nicotineStrength: number;
   currency: string;
   quitDate: number | null;
-  notificationTime: string; // HH:mm
+  notificationTime: string;
   notificationMode: 'FIXED' | 'RANDOM';
   isOnboarded: boolean;
   planDuration: PlanDuration;
