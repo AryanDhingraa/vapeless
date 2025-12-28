@@ -1,13 +1,12 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
-import { Dashboard } from './components/Dashboard';
-import { AICoach } from './components/AICoach';
-import { Settings } from './components/Settings';
-import { HealthProgress } from './components/HealthProgress';
-import { Onboarding } from './components/Onboarding';
-import { Achievements } from './components/Achievements';
-import { Auth } from './components/Auth';
-import { PuffLog, UserSettings, User } from './types';
+import { Dashboard } from './components/Dashboard.tsx';
+import { AICoach } from './components/AICoach.tsx';
+import { Settings } from './components/Settings.tsx';
+import { HealthProgress } from './components/HealthProgress.tsx';
+import { Onboarding } from './components/Onboarding.tsx';
+import { Achievements } from './components/Achievements.tsx';
+import { Auth } from './components/Auth.tsx';
+import { PuffLog, UserSettings, User } from './types.ts';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -21,8 +20,12 @@ const App: React.FC = () => {
   useEffect(() => {
     const savedUser = sessionStorage.getItem('vapeless_session');
     if (savedUser) {
-      const user = JSON.parse(savedUser);
-      setCurrentUser(user);
+      try {
+        const user = JSON.parse(savedUser);
+        setCurrentUser(user);
+      } catch (e) {
+        console.error("Session parse error", e);
+      }
     }
   }, []);
 
@@ -32,9 +35,13 @@ const App: React.FC = () => {
       const userKey = `data_${currentUser.email}`;
       const savedData = localStorage.getItem(userKey);
       if (savedData) {
-        const parsed = JSON.parse(savedData);
-        setPuffs(parsed.puffs || []);
-        setSettings(parsed.settings || null);
+        try {
+          const parsed = JSON.parse(savedData);
+          setPuffs(parsed.puffs || []);
+          setSettings(parsed.settings || null);
+        } catch (e) {
+          console.error("Data parse error", e);
+        }
       } else {
         setPuffs([]);
         setSettings(null);

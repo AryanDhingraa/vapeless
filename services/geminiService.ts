@@ -1,14 +1,14 @@
-
 import { GoogleGenAI } from "@google/genai";
-import { UserSettings, PuffLog } from "../types";
+import { UserSettings, PuffLog } from "../types.ts";
 
 // Lazy-loaded AI instance to prevent initialization crashes
 let aiInstance: GoogleGenAI | null = null;
 
 const getAI = () => {
   if (!aiInstance) {
-    // Falls back to empty string if key is missing to avoid constructor crash
-    aiInstance = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+    // Safely access process.env.API_KEY
+    const apiKey = (window as any).process?.env?.API_KEY || "";
+    aiInstance = new GoogleGenAI({ apiKey });
   }
   return aiInstance;
 };

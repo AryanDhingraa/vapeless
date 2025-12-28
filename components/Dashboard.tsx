@@ -1,7 +1,6 @@
-
 import React, { useEffect, useState } from 'react';
-import { PuffLog, UserSettings } from '../types';
-import { getDailyInsight } from '../services/geminiService';
+import { PuffLog, UserSettings } from '../types.ts';
+import { getDailyInsight } from '../services/geminiService.ts';
 
 interface DashboardProps {
   puffs: PuffLog[];
