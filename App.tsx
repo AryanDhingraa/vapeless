@@ -6,15 +6,19 @@ import { HealthProgress } from './components/HealthProgress.tsx';
 import { Onboarding } from './components/Onboarding.tsx';
 import { Achievements } from './components/Achievements.tsx';
 import { Auth } from './components/Auth.tsx';
+import { AdminPanel } from './pages/AdminPanel.tsx';
 import { PuffLog, UserSettings, User } from './types.ts';
+import { dbService } from './services/dbService.ts';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<'dash' | 'health' | 'coach' | 'settings' | 'badges'>('dash');
+  const [activeTab, setActiveTab] = useState<'dash' | 'health' | 'coach' | 'settings' | 'badges' | 'admin'>('dash');
   const [puffs, setPuffs] = useState<PuffLog[]>([]);
   const [settings, setSettings] = useState<UserSettings | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isAnimatePuff, setIsAnimatePuff] = useState(false);
   const [isWidgetMode, setIsWidgetMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Load user from session if exists
   useEffect(() => {
@@ -25,38 +29,39 @@ const App: React.FC = () => {
         setCurrentUser(user);
       } catch (e) {
         console.error("Session parse error", e);
+        setIsLoading(false);
       }
+    } else {
+      setIsLoading(false);
     }
   }, []);
 
-  // Load User Specific Data
+  // Load User Specific Data from Cloud Service
   useEffect(() => {
-    if (currentUser) {
-      const userKey = `data_${currentUser.email}`;
-      const savedData = localStorage.getItem(userKey);
-      if (savedData) {
+    const fetchData = async () => {
+      if (currentUser) {
+        setIsLoading(true);
         try {
-          const parsed = JSON.parse(savedData);
-          setPuffs(parsed.puffs || []);
-          setSettings(parsed.settings || null);
+          const data = await dbService.getUserData(currentUser);
+          setPuffs(data.puffs);
+          setSettings(data.settings);
+          setIsAdmin(data.isAdmin);
         } catch (e) {
-          console.error("Data parse error", e);
+          console.error("Cloud fetch error", e);
+        } finally {
+          setIsLoading(false);
         }
-      } else {
-        setPuffs([]);
-        setSettings(null);
       }
-    }
+    };
+    fetchData();
   }, [currentUser]);
 
-  // Sync data to mock backend (localStorage) whenever it changes
+  // Sync data to database service whenever it changes
   useEffect(() => {
-    if (currentUser) {
-      const userKey = `data_${currentUser.email}`;
-      const dataToSave = { puffs, settings };
-      localStorage.setItem(userKey, JSON.stringify(dataToSave));
+    if (currentUser && !isLoading) {
+      dbService.syncData(currentUser, puffs, settings);
     }
-  }, [puffs, settings, currentUser]);
+  }, [puffs, settings, currentUser, isLoading]);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
@@ -68,10 +73,15 @@ const App: React.FC = () => {
     sessionStorage.removeItem('vapeless_session');
     setPuffs([]);
     setSettings(null);
+    setIsAdmin(false);
+    setActiveTab('dash');
   };
 
-  const saveSettings = (newSettings: UserSettings) => {
+  const saveSettings = async (newSettings: UserSettings) => {
     setSettings(newSettings);
+    if (currentUser) {
+      await dbService.syncData(currentUser, puffs, newSettings);
+    }
   };
 
   const addPuff = useCallback(() => {
@@ -84,10 +94,22 @@ const App: React.FC = () => {
     setIsAnimatePuff(true);
     setTimeout(() => setIsAnimatePuff(false), 200);
     
+    if (currentUser) {
+      dbService.savePuff(currentUser, newPuff);
+    }
+
     if (window.navigator.vibrate) {
       window.navigator.vibrate(60);
     }
-  }, []);
+  }, [currentUser]);
+
+  if (isLoading && currentUser) {
+    return (
+      <div className="fixed inset-0 bg-white flex flex-col items-center justify-center p-6 font-mono">
+        <div className="text-xl font-black animate-pulse uppercase">Syncing_Global_State...</div>
+      </div>
+    );
+  }
 
   if (!currentUser) {
     return <Auth onLogin={handleLogin} />;
@@ -99,10 +121,10 @@ const App: React.FC = () => {
 
   if (isWidgetMode) {
     const today = new Date().setHours(0,0,0,0);
-    const todayCount = puffs.filter(p => p.timestamp >= today).length;
+    const todayCount = puffs.filter(p => p.timestamp >= today).reduce((acc, p) => acc + p.count, 0);
     
     return (
-      <div className="fixed inset-0 bg-black text-white flex flex-col items-center justify-center p-8 z-[1000] animate-in fade-in duration-300">
+      <div className="fixed inset-0 bg-black text-white flex flex-col items-center justify-center p-8 z-[1000] animate-in fade-in duration-300 font-mono">
         <button 
           onClick={() => setIsWidgetMode(false)}
           className="absolute top-12 right-6 text-white/50 font-black text-xs border border-white/20 px-3 py-1 rounded-full uppercase"
@@ -133,7 +155,7 @@ const App: React.FC = () => {
         </button>
 
         <div className="mt-12 text-[9px] font-black opacity-30 text-center italic uppercase leading-tight">
-          Double-tap lock screen shortcut<br/>to open this view instantly.
+          DOUBLE-TAP LOCK SCREEN SHORTCUT<br/>TO LOG INSTANTLY.
         </div>
       </div>
     );
@@ -145,6 +167,7 @@ const App: React.FC = () => {
       case 'health': return <div className="p-4 space-y-4"><HealthProgress quitDate={settings.quitDate} /></div>;
       case 'badges': return <Achievements puffs={puffs} settings={settings} />;
       case 'coach': return <AICoach settings={settings} puffs={puffs} />;
+      case 'admin': return <AdminPanel />;
       case 'settings': return <Settings settings={settings} setSettings={saveSettings} onClearData={() => {
         if(confirm('WIPE ALL ACCOUNT DATA?')) { setPuffs([]); setSettings(null); }
       }} onLogout={handleLogout} />;
@@ -152,7 +175,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white text-black select-none safe-bottom flex flex-col items-center">
+    <div className="min-h-screen bg-white text-black select-none safe-bottom flex flex-col items-center font-mono">
       <div className="w-full max-w-md h-screen relative flex flex-col overflow-hidden shadow-2xl">
         <header className="sticky top-0 z-50 bg-white border-b-4 border-black px-6 py-4 flex items-center justify-between shadow-[0px_4px_0px_rgba(0,0,0,1)]">
           <div className="flex items-center gap-2">
@@ -160,6 +183,14 @@ const App: React.FC = () => {
             <h1 className="text-xl font-black tracking-tighter uppercase italic">VapeLess</h1>
           </div>
           <div className="flex gap-4 items-center">
+            {isAdmin && (
+              <button 
+                onClick={() => setActiveTab('admin')} 
+                className={`text-[9px] font-black border-2 border-black px-2 py-1 uppercase ${activeTab === 'admin' ? 'bg-black text-white' : ''}`}
+              >
+                ADMIN
+              </button>
+            )}
             <button 
               onClick={() => setIsWidgetMode(true)} 
               className="text-[9px] font-black border-2 border-black px-2 py-1 active:bg-black active:text-white uppercase"

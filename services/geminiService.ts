@@ -1,17 +1,6 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { UserSettings, PuffLog } from "../types.ts";
-
-// Lazy-loaded AI instance to prevent initialization crashes
-let aiInstance: GoogleGenAI | null = null;
-
-const getAI = () => {
-  if (!aiInstance) {
-    // Safely access process.env.API_KEY
-    const apiKey = (window as any).process?.env?.API_KEY || "";
-    aiInstance = new GoogleGenAI({ apiKey });
-  }
-  return aiInstance;
-};
 
 export const getCoachResponse = async (
   message: string,
@@ -19,7 +8,8 @@ export const getCoachResponse = async (
   recentPuffs: PuffLog[]
 ) => {
   try {
-    const ai = getAI();
+    // Always instantiate a new instance per coding guidelines for up-to-date API keys
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `The user wants help quitting vaping. 
@@ -44,7 +34,8 @@ export const getCoachResponse = async (
 
 export const getDailyInsight = async (puffs: PuffLog[], settings: UserSettings) => {
   try {
-    const ai = getAI();
+    // Always instantiate a new instance per coding guidelines for up-to-date API keys
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const today = new Date().setHours(0,0,0,0);
     const todayPuffs = puffs.filter(p => p.timestamp >= today).length;
     

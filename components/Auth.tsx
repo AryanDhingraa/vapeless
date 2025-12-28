@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { User } from '../types';
+import { User } from '../types.ts';
+import { dbService } from '../services/dbService.ts';
 
 interface AuthProps {
   onLogin: (user: User) => void;
@@ -11,35 +12,41 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsProcessing(true);
 
     if (!email || !password) {
       setError('FIELD_REQUIRED.ERR');
+      setIsProcessing(false);
       return;
     }
 
-    // SIMULATED BACKEND LOGIC
-    const users = JSON.parse(localStorage.getItem('vapeless_users') || '[]');
-    
-    if (isLogin) {
-      const user = users.find((u: any) => u.email === email && u.password === password);
-      if (user) {
-        onLogin({ id: user.id, email: user.email });
+    try {
+      if (isLogin) {
+        const user = await dbService.login(email, password);
+        if (user) {
+          onLogin(user);
+        } else {
+          setError('AUTH_FAILED. SYSTEM_REJECT.');
+        }
       } else {
-        setError('AUTH_FAILED. SYSTEM_REJECT.');
+        const newUser = await dbService.signup(email, password);
+        if (newUser) {
+          onLogin(newUser);
+        }
       }
-    } else {
-      if (users.find((u: any) => u.email === email)) {
+    } catch (err: any) {
+      if (err.message === "USER_EXISTS") {
         setError('USER_EXISTS. DUPLICATE_ENTRY.');
-        return;
+      } else {
+        setError('NETWORK_ERROR. TRY_AGAIN.');
       }
-      const newUser = { id: Math.random().toString(36).substr(2, 9), email, password };
-      users.push(newUser);
-      localStorage.setItem('vapeless_users', JSON.stringify(users));
-      onLogin({ id: newUser.id, email: newUser.email });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -58,7 +65,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         <div className="retro-border bg-white overflow-hidden">
           <div className="retro-window-header flex justify-between">
             <span>{isLogin ? 'LOGIN_SYSTEM' : 'CREATE_ACCOUNT'}</span>
-            <i className="fas fa-lock"></i>
+            <i className={`fas ${isProcessing ? 'fa-spinner fa-spin' : 'fa-lock'}`}></i>
           </div>
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
             {error && (
@@ -72,6 +79,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               <input 
                 type="email" 
                 value={email}
+                disabled={isProcessing}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full border-2 border-black p-2 text-sm outline-none focus:bg-gray-50"
                 placeholder="USER@DOMAIN.COM"
@@ -83,20 +91,25 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               <input 
                 type="password" 
                 value={password}
+                disabled={isProcessing}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full border-2 border-black p-2 text-sm outline-none focus:bg-gray-50"
                 placeholder="********"
               />
             </div>
 
-            <button type="submit" className="w-full bg-black text-white py-4 font-black uppercase text-sm hover:invert transition-all active:scale-95">
-              {isLogin ? 'AUTH_EXECUTE' : 'REGISTER_USER'}
+            <button 
+              type="submit" 
+              disabled={isProcessing}
+              className={`w-full bg-black text-white py-4 font-black uppercase text-sm hover:invert transition-all active:scale-95 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {isProcessing ? 'PROCESSING...' : (isLogin ? 'AUTH_EXECUTE' : 'REGISTER_USER')}
             </button>
           </form>
         </div>
 
         <button 
-          onClick={() => setIsLogin(!isLogin)}
+          onClick={() => !isProcessing && setIsLogin(!isLogin)}
           className="w-full text-center text-[10px] font-black underline uppercase"
         >
           {isLogin ? 'Create new secure account' : 'Return to login portal'}

@@ -3,12 +3,14 @@ export interface User {
   id: string;
   email: string;
   password?: string; // In a real app, this would be hashed on the server
+  isAdmin?: boolean; // Field for checking admin status
 }
 
 export interface PuffLog {
   id: string;
   timestamp: number;
   count: number;
+  user_id?: string; // Added for admin view
 }
 
 export type PlanDuration = 15 | 20 | 30 | 60;
@@ -25,6 +27,7 @@ export interface UserSettings {
   isOnboarded: boolean;
   planDuration: PlanDuration;
   planStartDate: number | null;
+  isAdmin?: boolean; // New field for admin access
 }
 
 export interface Achievement {
