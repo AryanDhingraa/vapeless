@@ -1,6 +1,8 @@
+
 import React, { useEffect, useState } from 'react';
 import { PuffLog, UserSettings } from '../types.ts';
 import { getDailyInsight } from '../services/geminiService.ts';
+import { soundService } from '../services/soundService.ts';
 
 interface DashboardProps {
   puffs: PuffLog[];
@@ -70,6 +72,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ puffs, settings }) => {
     return { dayNum, date: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), count, limit, success: count <= limit };
   });
 
+  const toggleLogBook = () => {
+    soundService.play('click', settings.soundEnabled);
+    setShowLogBook(!showLogBook);
+  };
+
   return (
     <div className="space-y-6 pb-40 px-4 pt-4">
       <div className="flex justify-between items-center text-[9px] font-black uppercase opacity-40 px-1 border-b border-black pb-1">
@@ -137,7 +144,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ puffs, settings }) => {
 
       <div className="retro-border bg-white overflow-hidden">
         <button 
-          onClick={() => setShowLogBook(!showLogBook)}
+          onClick={toggleLogBook}
           className="w-full retro-window-header flex justify-between items-center px-3 py-2 cursor-pointer active:invert"
         >
           <span>HISTORY_LOG.DB</span>

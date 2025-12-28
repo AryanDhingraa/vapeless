@@ -28,6 +28,7 @@ export interface UserSettings {
   planDuration: PlanDuration;
   planStartDate: number | null;
   isAdmin?: boolean; // New field for admin access
+  soundEnabled: boolean; // Toggle for retro SFX
 }
 
 export interface Achievement {

@@ -19,7 +19,8 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     notificationMode: 'FIXED',
     isOnboarded: true,
     planDuration: 30,
-    planStartDate: Date.now()
+    planStartDate: Date.now(),
+    soundEnabled: true
   });
 
   const next = () => setStep(s => s + 1);

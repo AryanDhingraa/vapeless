@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { UserSettings, PlanDuration } from '../types';
+import { soundService } from '../services/soundService';
 
 interface SettingsProps {
   settings: UserSettings;
@@ -12,6 +13,9 @@ interface SettingsProps {
 export const Settings: React.FC<SettingsProps> = ({ settings, setSettings, onClearData, onLogout }) => {
   const handleChange = (key: keyof UserSettings, value: any) => {
     setSettings({ ...settings, [key]: value });
+    if (key === 'soundEnabled' && value === true) {
+      soundService.play('success', true);
+    }
   };
 
   return (
@@ -28,6 +32,21 @@ export const Settings: React.FC<SettingsProps> = ({ settings, setSettings, onCle
           <p>2. Tap the Share icon (square with arrow)</p>
           <p>3. Select "Add to Home Screen"</p>
           <p>4. Use the "WIDGET" button in header for instant logging</p>
+        </div>
+      </div>
+
+      <div className="retro-border bg-white overflow-hidden">
+        <div className="retro-window-header">HARDWARE_CONFIG.SYS</div>
+        <div className="p-4 space-y-4">
+          <div className="flex items-center justify-between border-b border-black pb-2">
+            <span className="text-[10px] font-bold uppercase">Audio Feedback</span>
+            <button 
+              onClick={() => handleChange('soundEnabled', !settings.soundEnabled)}
+              className={`text-[9px] font-black border-2 border-black px-3 py-1 uppercase ${settings.soundEnabled ? 'bg-black text-white' : 'bg-white text-black'}`}
+            >
+              {settings.soundEnabled ? 'ON' : 'OFF'}
+            </button>
+          </div>
         </div>
       </div>
 

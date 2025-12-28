@@ -10,6 +10,7 @@ import { Auth } from './components/Auth.tsx';
 import { AdminPanel } from './pages/AdminPanel.tsx';
 import { PuffLog, UserSettings, User } from './types.ts';
 import { dbService, supabase } from './services/dbService.ts';
+import { soundService } from './services/soundService.ts';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -86,9 +87,11 @@ const App: React.FC = () => {
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     sessionStorage.setItem('vapeless_session', JSON.stringify(user));
+    soundService.play('success', true);
   };
 
   const handleLogout = async () => {
+    soundService.play('error', settings?.soundEnabled ?? true);
     await supabase.auth.signOut();
     setCurrentUser(null);
     sessionStorage.removeItem('vapeless_session');
@@ -96,6 +99,11 @@ const App: React.FC = () => {
     setSettings(null);
     setIsAdmin(false);
     setActiveTab('dash');
+  };
+
+  const handleTabChange = (tab: any) => {
+    setActiveTab(tab);
+    soundService.play('tab', settings?.soundEnabled ?? true);
   };
 
   const saveSettings = async (newSettings: UserSettings) => {
@@ -111,9 +119,11 @@ const App: React.FC = () => {
     try {
       await dbService.updatePassword(password);
       alert('PASSWORD_UPDATED_SUCCESSFULLY');
+      soundService.play('success', settings?.soundEnabled ?? true);
       setIsUpdatingPassword(false);
       window.history.replaceState({}, document.title, window.location.pathname);
     } catch (err) {
+      soundService.play('error', settings?.soundEnabled ?? true);
       alert('PASSWORD_UPDATE_FAILED');
     }
   };
@@ -128,6 +138,8 @@ const App: React.FC = () => {
     setIsAnimatePuff(true);
     setTimeout(() => setIsAnimatePuff(false), 200);
     
+    soundService.play('puff', settings?.soundEnabled ?? true);
+
     if (currentUser) {
       dbService.savePuff(currentUser, newPuff);
     }
@@ -135,7 +147,7 @@ const App: React.FC = () => {
     if (window.navigator.vibrate) {
       window.navigator.vibrate(60);
     }
-  }, [currentUser]);
+  }, [currentUser, settings]);
 
   if (isUpdatingPassword) {
     return (
@@ -184,7 +196,10 @@ const App: React.FC = () => {
     return (
       <div className="fixed inset-0 bg-black text-white flex flex-col items-center justify-center p-8 z-[1000] animate-in fade-in duration-300 font-mono">
         <button 
-          onClick={() => setIsWidgetMode(false)}
+          onClick={() => {
+            soundService.play('click', settings.soundEnabled);
+            setIsWidgetMode(false);
+          }}
           className="absolute top-12 right-6 text-white/50 font-black text-xs border border-white/20 px-3 py-1 rounded-full uppercase"
         >
           Exit_Widget
@@ -243,19 +258,24 @@ const App: React.FC = () => {
           <div className="flex gap-4 items-center">
             {isAdmin && (
               <button 
-                onClick={() => setActiveTab('admin')} 
+                onClick={() => handleTabChange('admin')} 
                 className={`text-[9px] font-black border-2 border-black px-2 py-1 uppercase ${activeTab === 'admin' ? 'bg-black text-white' : ''}`}
               >
                 ADMIN
               </button>
             )}
             <button 
-              onClick={() => setIsWidgetMode(true)} 
+              onClick={() => {
+                soundService.play('click', settings.soundEnabled);
+                setIsWidgetMode(true);
+              }} 
               className="text-[9px] font-black border-2 border-black px-2 py-1 active:bg-black active:text-white uppercase"
             >
               Widget
             </button>
-            <button onClick={() => setActiveTab('settings')} className="text-xl active:scale-90 transition-transform">
+            <button onClick={() => {
+              handleTabChange(activeTab === 'settings' ? 'dash' : 'settings');
+            }} className="text-xl active:scale-90 transition-transform">
               <i className={`fas ${activeTab === 'settings' ? 'fa-times' : 'fa-bars'}`}></i>
             </button>
           </div>
@@ -284,11 +304,11 @@ const App: React.FC = () => {
         )}
 
         <nav className="sticky bottom-0 left-0 right-0 bg-white border-t-4 border-black px-2 py-2 flex items-center justify-between z-50 safe-bottom shadow-[0px_-4px_0px_rgba(0,0,0,1)]">
-          <NavBtn active={activeTab === 'dash'} onClick={() => setActiveTab('dash')} icon="fa-th-large" label="STATUS" />
-          <NavBtn active={activeTab === 'health'} onClick={() => setActiveTab('health')} icon="fa-heartbeat" label="HEALTH" />
+          <NavBtn active={activeTab === 'dash'} onClick={() => handleTabChange('dash')} icon="fa-th-large" label="STATUS" />
+          <NavBtn active={activeTab === 'health'} onClick={() => handleTabChange('health')} icon="fa-heartbeat" label="HEALTH" />
           <div className="w-16"></div>
-          <NavBtn active={activeTab === 'badges'} onClick={() => setActiveTab('badges')} icon="fa-award" label="AWARDS" />
-          <NavBtn active={activeTab === 'coach'} onClick={() => setActiveTab('coach')} icon="fa-terminal" label="COACH" />
+          <NavBtn active={activeTab === 'badges'} onClick={() => handleTabChange('badges')} icon="fa-award" label="AWARDS" />
+          <NavBtn active={activeTab === 'coach'} onClick={() => handleTabChange('coach')} icon="fa-terminal" label="COACH" />
         </nav>
       </div>
     </div>
