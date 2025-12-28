@@ -20,11 +20,10 @@ const App: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAnimatePuff, setIsAnimatePuff] = useState(false);
   const [isWidgetMode, setIsWidgetMode] = useState(false);
-  const [isBooting, setIsBooting] = useState(true); // Initial system check
-  const [isLoadingData, setIsLoadingData] = useState(false); // Data fetching state
+  const [isBooting, setIsBooting] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(false);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-  // Fetch all user-related data from the database
   const fetchUserData = useCallback(async (user: User) => {
     setIsLoadingData(true);
     try {
@@ -33,22 +32,19 @@ const App: React.FC = () => {
       setSettings(data.settings);
       setIsAdmin(data.isAdmin);
     } catch (e) {
-      console.error("Cloud fetch error", e);
+      console.error("Critical: Data Uplink Failure", e);
     } finally {
       setIsLoadingData(false);
     }
   }, []);
 
-  // Handle Authentication and Session Persistence
   useEffect(() => {
     const initializeAuth = async () => {
-      // 1. Check for password recovery flow first
       const query = new URLSearchParams(window.location.search);
       if (query.get('type') === 'recovery') {
         setIsUpdatingPassword(true);
       }
 
-      // 2. Get initial session from Supabase
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
@@ -60,10 +56,8 @@ const App: React.FC = () => {
         await fetchUserData(user);
       }
 
-      // 3. System boot sequence complete
       setIsBooting(false);
 
-      // 4. Listen for auth changes (login, logout, token refresh)
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (session?.user) {
           const user: User = {
@@ -71,7 +65,6 @@ const App: React.FC = () => {
             email: session.user.email || "",
           };
           setCurrentUser(user);
-          // If a new user signs in, or session is refreshed, update data
           if (event === 'SIGNED_IN') {
             await fetchUserData(user);
           }
@@ -87,23 +80,18 @@ const App: React.FC = () => {
     };
 
     const authSubPromise = initializeAuth();
-
     return () => {
       authSubPromise.then(sub => sub?.unsubscribe());
     };
   }, [fetchUserData]);
 
-  // Realtime Subscription for Live Updates
   useEffect(() => {
     if (currentUser) {
       const channel = dbService.subscribeToLogs(currentUser.id, () => fetchUserData(currentUser));
-      return () => {
-        channel.unsubscribe();
-      };
+      return () => { channel.unsubscribe(); };
     }
   }, [currentUser, fetchUserData]);
 
-  // Sync settings when they change locally
   useEffect(() => {
     if (currentUser && !isBooting && !isLoadingData && settings) {
       dbService.syncData(currentUser, puffs, settings);
@@ -119,10 +107,6 @@ const App: React.FC = () => {
     soundService.play('error', settings?.soundEnabled ?? true);
     await supabase.auth.signOut();
     setCurrentUser(null);
-    setPuffs([]);
-    setSettings(null);
-    setIsAdmin(false);
-    setActiveTab('dash');
   };
 
   const handleTabChange = (tab: any) => {
@@ -137,61 +121,33 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdatePassword = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const password = (e.currentTarget.elements.namedItem('new-password') as HTMLInputElement).value;
-    try {
-      await dbService.updatePassword(password);
-      alert('PASSWORD_UPDATED_SUCCESSFULLY');
-      soundService.play('success', settings?.soundEnabled ?? true);
-      setIsUpdatingPassword(false);
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } catch (err) {
-      soundService.play('error', settings?.soundEnabled ?? true);
-      alert('PASSWORD_UPDATE_FAILED');
-    }
-  };
-
   const addPuff = useCallback(() => {
     const newPuff: PuffLog = {
       id: Math.random().toString(36).substr(2, 9),
       timestamp: Date.now(),
       count: 1
     };
-    
-    // Optimistic local update
     setPuffs(prev => [...prev, newPuff]);
     setIsAnimatePuff(true);
     setTimeout(() => setIsAnimatePuff(false), 200);
-    
     soundService.play('puff', settings?.soundEnabled ?? true);
-
-    if (currentUser) {
-      dbService.savePuff(currentUser, newPuff);
-    }
-
-    if (window.navigator.vibrate) {
-      window.navigator.vibrate(60);
-    }
+    if (currentUser) { dbService.savePuff(currentUser, newPuff); }
+    if (window.navigator.vibrate) { window.navigator.vibrate(60); }
   }, [currentUser, settings]);
 
-  // Loading Screens
   if (isBooting) {
     return (
       <div className="fixed inset-0 bg-white flex flex-col items-center justify-center p-6 font-mono text-center">
-        <div className="retro-border bg-black text-white p-6 max-w-xs space-y-4">
-          <div className="text-xl font-black italic tracking-tighter uppercase">BOOTING_SYSTEM...</div>
-          <div className="h-1 w-full bg-white/20 overflow-hidden">
-            <div className="h-full bg-white animate-[loading_2s_infinite]"></div>
+        <div className="retro-border bg-black text-white p-8 max-w-xs space-y-6 shadow-[10px_10px_0px_#ccc]">
+          <div className="text-2xl font-black italic tracking-tighter uppercase animate-pulse">BOOTING_OS...</div>
+          <div className="h-[4px] w-full bg-white/20 overflow-hidden border border-white">
+            <div className="h-full bg-white animate-loading-bar"></div>
           </div>
-          <p className="text-[10px] font-black uppercase opacity-60">Initializing secure session vault</p>
+          <p className="text-[9px] font-black uppercase opacity-60 tracking-widest">Initialising Secure Vault</p>
         </div>
         <style>{`
-          @keyframes loading {
-            0% { width: 0%; }
-            50% { width: 100%; }
-            100% { width: 0%; }
-          }
+          @keyframes loading { 0% { width: 0%; } 50% { width: 100%; } 100% { width: 0%; } }
+          .animate-loading-bar { animation: loading 2s ease-in-out infinite; }
         `}</style>
       </div>
     );
@@ -200,84 +156,52 @@ const App: React.FC = () => {
   if (isUpdatingPassword) {
     return (
       <div className="fixed inset-0 bg-white z-[300] flex flex-col items-center justify-center p-6 font-mono">
-        <div className="w-full max-w-sm retro-border bg-white shadow-[8px_8px_0px_#000]">
-          <div className="retro-window-header uppercase">Update_Security_Key</div>
-          <form onSubmit={handleUpdatePassword} className="p-6 space-y-4">
+        <div className="w-full max-w-sm retro-border bg-white shadow-[12px_12px_0px_#000]">
+          <div className="retro-window-header bg-black text-white px-3 py-2 uppercase font-black text-xs">Security_Patch.exe</div>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            const pass = (e.currentTarget.elements.namedItem('new-password') as HTMLInputElement).value;
+            try {
+              await dbService.updatePassword(pass);
+              alert('SUCCESS: SECURITY_TOKEN_UPDATED');
+              setIsUpdatingPassword(false);
+              window.history.replaceState({}, document.title, window.location.pathname);
+            } catch { alert('FAILURE: SYSTEM_REJECT'); }
+          }} className="p-6 space-y-5">
             <div className="space-y-1">
-              <label className="text-[9px] font-black uppercase">New_Password</label>
-              <input 
-                name="new-password"
-                type="password" 
-                required
-                className="w-full border-4 border-black p-3 text-sm outline-none"
-                placeholder="********"
-              />
+              <label className="text-[10px] font-black uppercase">New_Access_Token</label>
+              <input name="new-password" type="password" required className="w-full border-4 border-black p-4 text-sm font-black outline-none" placeholder="********" />
             </div>
-            <button type="submit" className="w-full bg-black text-white py-4 font-black uppercase">Apply_Changes</button>
-            <button type="button" onClick={() => setIsUpdatingPassword(false)} className="w-full text-center text-[10px] font-black underline uppercase">Cancel</button>
+            <button type="submit" className="w-full bg-black text-white py-4 font-black uppercase hover:invert transition-all">Apply_Override</button>
+            <button type="button" onClick={() => setIsUpdatingPassword(false)} className="w-full text-center text-[10px] font-black underline uppercase opacity-60">Abort</button>
           </form>
         </div>
       </div>
     );
   }
 
-  if (!currentUser) {
-    return <Auth onLogin={handleLogin} />;
-  }
-
-  if (isLoadingData && !settings) {
-    return (
-      <div className="fixed inset-0 bg-white flex flex-col items-center justify-center p-6 font-mono">
-        <div className="text-xl font-black animate-pulse uppercase">Syncing_Global_State...</div>
-      </div>
-    );
-  }
-
-  if (!settings) {
-    return <Onboarding onComplete={saveSettings} />;
-  }
+  if (!currentUser) return <Auth onLogin={handleLogin} />;
+  if (isLoadingData && !settings) return (
+    <div className="fixed inset-0 bg-white flex flex-col items-center justify-center font-mono">
+      <div className="text-xl font-black animate-pulse uppercase tracking-widest">SYNC_MODE_ACTIVE...</div>
+    </div>
+  );
+  if (!settings) return <Onboarding onComplete={saveSettings} />;
 
   if (isWidgetMode) {
     const today = new Date().setHours(0,0,0,0);
     const todayCount = puffs.filter(p => p.timestamp >= today).reduce((acc, p) => acc + p.count, 0);
-    
     return (
-      <div className="fixed inset-0 bg-black text-white flex flex-col items-center justify-center p-8 z-[1000] animate-in fade-in duration-300 font-mono">
-        <button 
-          onClick={() => {
-            soundService.play('click', settings.soundEnabled);
-            setIsWidgetMode(false);
-          }}
-          className="absolute top-12 right-6 text-white/50 font-black text-xs border border-white/20 px-3 py-1 rounded-full uppercase"
-        >
-          Exit_Widget
-        </button>
-        
-        <div className="text-center space-y-2 mb-12">
-          <div className="text-[10px] font-black tracking-widest opacity-50 uppercase">Today_Puffs</div>
-          <div className="text-9xl font-black tracking-tighter leading-none">{todayCount}</div>
-          <div className="text-[10px] font-black bg-white text-black px-2 py-0.5 uppercase tracking-widest">
-            {currentUser.email.split('@')[0]}
-          </div>
+      <div className="fixed inset-0 bg-black text-white flex flex-col items-center justify-center p-8 z-[1000] font-mono">
+        <button onClick={() => { soundService.play('click', settings.soundEnabled); setIsWidgetMode(false); }} className="absolute top-12 right-6 text-white border-2 border-white px-4 py-2 text-[10px] font-black uppercase">Close_HUD</button>
+        <div className="text-center space-y-4 mb-16">
+          <div className="text-[12px] font-black tracking-widest opacity-50 uppercase italic">Uplink_Identity: {currentUser.email.split('@')[0]}</div>
+          <div className="text-[120px] font-black leading-none tracking-tighter animate-pulse">{todayCount}</div>
+          <div className="text-xs font-black uppercase bg-white text-black px-4 py-1">Daily_Exposure_Count</div>
         </div>
-
-        <button 
-          onClick={addPuff}
-          className={`
-            w-64 h-64 rounded-full border-8 border-white bg-transparent
-            flex items-center justify-center transition-all duration-75
-            active:bg-white active:scale-95
-            ${isAnimatePuff ? 'bg-white shadow-[0_0_50px_rgba(255,255,255,0.5)]' : ''}
-          `}
-        >
-          <span className={`text-5xl font-black uppercase ${isAnimatePuff ? 'text-black' : 'text-white'}`}>
-            {isAnimatePuff ? 'OK' : 'PUFF'}
-          </span>
+        <button onClick={addPuff} className={`w-64 h-64 rounded-full border-8 border-white bg-transparent flex items-center justify-center active:bg-white active:scale-95 transition-all ${isAnimatePuff ? 'bg-white shadow-[0_0_80px_rgba(255,255,255,0.7)]' : ''}`}>
+          <span className={`text-6xl font-black ${isAnimatePuff ? 'text-black' : 'text-white'}`}>LOG</span>
         </button>
-
-        <div className="mt-12 text-[9px] font-black opacity-30 text-center italic uppercase leading-tight">
-          DOUBLE-TAP LOCK SCREEN SHORTCUT<br/>TO LOG INSTANTLY.
-        </div>
       </div>
     );
   }
@@ -285,73 +209,41 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dash': return <Dashboard puffs={puffs} settings={settings} isAnimatePuff={isAnimatePuff} />;
-      case 'health': return <div className="p-4 space-y-4"><HealthProgress quitDate={settings.quitDate} /></div>;
+      case 'health': return <HealthProgress quitDate={settings.quitDate} />;
       case 'badges': return <Achievements puffs={puffs} settings={settings} />;
       case 'coach': return <AICoach settings={settings} puffs={puffs} />;
       case 'admin': return <AdminPanel />;
-      case 'settings': return <Settings settings={settings} setSettings={saveSettings} onClearData={() => {
-        if(confirm('WIPE ALL ACCOUNT DATA?')) { setPuffs([]); setSettings(null); }
-      }} onLogout={handleLogout} />;
+      case 'settings': return <Settings settings={settings} setSettings={saveSettings} onClearData={() => { if(confirm('WIPE_ALL_REGISTRY_DATA?')) { setPuffs([]); setSettings(null); } }} onLogout={handleLogout} />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-white text-black select-none safe-bottom flex flex-col items-center font-mono">
-      <div className="w-full max-w-md h-screen relative flex flex-col overflow-hidden shadow-2xl">
-        <header className="sticky top-0 z-50 bg-white border-b-4 border-black px-6 py-4 flex items-center justify-between shadow-[0px_4px_0px_rgba(0,0,0,1)]">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-black text-white flex items-center justify-center font-black">V</div>
-            <h1 className="text-xl font-black tracking-tighter uppercase italic">VapeLess</h1>
+    <div className="min-h-screen bg-white text-black select-none flex flex-col items-center font-mono">
+      <div className="w-full max-w-md h-screen relative flex flex-col overflow-hidden shadow-2xl bg-white border-x-4 border-black">
+        <header className="sticky top-0 z-50 bg-white border-b-4 border-black px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-black text-xl italic">V</div>
+            <h1 className="text-2xl font-black tracking-tighter uppercase italic">VapeLess</h1>
           </div>
           <div className="flex gap-4 items-center">
-            {isAdmin && (
-              <button 
-                onClick={() => handleTabChange('admin')} 
-                className={`text-[9px] font-black border-2 border-black px-2 py-1 uppercase ${activeTab === 'admin' ? 'bg-black text-white' : ''}`}
-              >
-                ADMIN
-              </button>
-            )}
-            <button 
-              onClick={() => {
-                soundService.play('click', settings.soundEnabled);
-                setIsWidgetMode(true);
-              }} 
-              className="text-[9px] font-black border-2 border-black px-2 py-1 active:bg-black active:text-white uppercase"
-            >
-              Widget
-            </button>
-            <button onClick={() => {
-              handleTabChange(activeTab === 'settings' ? 'dash' : 'settings');
-            }} className="text-xl active:scale-90 transition-transform">
-              <i className={`fas ${activeTab === 'settings' ? 'fa-times' : 'fa-bars'}`}></i>
-            </button>
+            {isAdmin && <button onClick={() => handleTabChange('admin')} className={`text-[9px] font-black border-2 border-black px-2 py-1 uppercase ${activeTab === 'admin' ? 'bg-black text-white' : ''}`}>Admin</button>}
+            <button onClick={() => { soundService.play('click', settings.soundEnabled); setIsWidgetMode(true); }} className="text-[9px] font-black border-2 border-black px-2 py-1 uppercase hover:bg-black hover:text-white transition-all">Widget</button>
+            <button onClick={() => handleTabChange(activeTab === 'settings' ? 'dash' : 'settings')} className="text-2xl hover:scale-110 transition-transform"><i className={`fas ${activeTab === 'settings' ? 'fa-times' : 'fa-bars'}`}></i></button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-[#fafafa]">
-          {renderContent()}
-        </main>
+        <main className="flex-1 overflow-y-auto">{renderContent()}</main>
 
         {activeTab === 'dash' && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40">
-            <button 
-              onClick={addPuff}
-              className={`
-                w-24 h-24 rounded-full bg-white border-4 border-black 
-                text-black shadow-[6px_6px_0px_rgba(0,0,0,1)]
-                flex flex-col items-center justify-center transition-all duration-75
-                active:shadow-none active:translate-x-1 active:translate-y-1
-                ${isAnimatePuff ? 'bg-black text-white' : ''}
-              `}
-            >
-              <i className="fas fa-plus text-2xl mb-1"></i>
-              <span className="text-[9px] font-black uppercase">LOG</span>
+          <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-40">
+            <button onClick={addPuff} className={`w-28 h-28 rounded-full bg-white border-4 border-black text-black shadow-[8px_8px_0px_#000] flex flex-col items-center justify-center active:shadow-none active:translate-x-2 active:translate-y-2 transition-all ${isAnimatePuff ? 'bg-black text-white' : ''}`}>
+              <i className="fas fa-plus text-3xl mb-1"></i>
+              <span className="text-[10px] font-black uppercase">Log_Puff</span>
             </button>
           </div>
         )}
 
-        <nav className="sticky bottom-0 left-0 right-0 bg-white border-t-4 border-black px-2 py-2 flex items-center justify-between z-50 safe-bottom shadow-[0px_-4px_0px_rgba(0,0,0,1)]">
+        <nav className="sticky bottom-0 left-0 right-0 bg-white border-t-4 border-black px-4 py-3 flex items-center justify-between z-50 safe-bottom">
           <NavBtn active={activeTab === 'dash'} onClick={() => handleTabChange('dash')} icon="fa-th-large" label="STATUS" />
           <NavBtn active={activeTab === 'health'} onClick={() => handleTabChange('health')} icon="fa-heartbeat" label="HEALTH" />
           <div className="w-16"></div>
@@ -364,12 +256,9 @@ const App: React.FC = () => {
 };
 
 const NavBtn: React.FC<{ active: boolean; onClick: () => void; icon: string; label: string }> = ({ active, onClick, icon, label }) => (
-  <button 
-    onClick={onClick}
-    className={`flex flex-col items-center justify-center w-14 h-14 rounded transition-all ${active ? 'bg-black text-white' : 'text-black active:bg-gray-100'}`}
-  >
-    <i className={`fas ${icon} text-lg`}></i>
-    <span className="text-[7px] font-black mt-1 tracking-wider uppercase">{label}</span>
+  <button onClick={onClick} className={`flex flex-col items-center justify-center w-14 h-14 transition-all ${active ? 'bg-black text-white border-2 border-black' : 'text-black grayscale opacity-40 hover:opacity-100 hover:grayscale-0'}`}>
+    <i className={`fas ${icon} text-xl`}></i>
+    <span className="text-[8px] font-black mt-1 uppercase tracking-tighter">{label}</span>
   </button>
 );
 
