@@ -20,73 +20,98 @@ const App: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAnimatePuff, setIsAnimatePuff] = useState(false);
   const [isWidgetMode, setIsWidgetMode] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isBooting, setIsBooting] = useState(true); // Initial system check
+  const [isLoadingData, setIsLoadingData] = useState(false); // Data fetching state
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-  // Handle Supabase Auth State and Recovery Flow
-  useEffect(() => {
-    // Check URL for recovery type
-    const query = new URLSearchParams(window.location.search);
-    if (query.get('type') === 'recovery') {
-      setIsUpdatingPassword(true);
+  // Fetch all user-related data from the database
+  const fetchUserData = useCallback(async (user: User) => {
+    setIsLoadingData(true);
+    try {
+      const data = await dbService.getUserData(user);
+      setPuffs(data.puffs);
+      setSettings(data.settings);
+      setIsAdmin(data.isAdmin);
+    } catch (e) {
+      console.error("Cloud fetch error", e);
+    } finally {
+      setIsLoadingData(false);
     }
+  }, []);
 
-    supabase.auth.onAuthStateChange(async (event, session) => {
+  // Handle Authentication and Session Persistence
+  useEffect(() => {
+    const initializeAuth = async () => {
+      // 1. Check for password recovery flow first
+      const query = new URLSearchParams(window.location.search);
+      if (query.get('type') === 'recovery') {
+        setIsUpdatingPassword(true);
+      }
+
+      // 2. Get initial session from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      
       if (session?.user) {
         const user: User = {
           id: session.user.id,
           email: session.user.email || "",
         };
         setCurrentUser(user);
-        sessionStorage.setItem('vapeless_session', JSON.stringify(user));
-      } else {
-        setCurrentUser(null);
-        sessionStorage.removeItem('vapeless_session');
+        await fetchUserData(user);
       }
-    });
 
-    const savedUser = sessionStorage.getItem('vapeless_session');
-    if (savedUser) {
-      try {
-        setCurrentUser(JSON.parse(savedUser));
-      } catch (e) {
-        setIsLoading(false);
-      }
-    } else {
-      setIsLoading(false);
-    }
-  }, []);
+      // 3. System boot sequence complete
+      setIsBooting(false);
 
-  // Load User Specific Data
-  useEffect(() => {
-    const fetchData = async () => {
-      if (currentUser) {
-        setIsLoading(true);
-        try {
-          const data = await dbService.getUserData(currentUser);
-          setPuffs(data.puffs);
-          setSettings(data.settings);
-          setIsAdmin(data.isAdmin);
-        } catch (e) {
-          console.error("Cloud fetch error", e);
-        } finally {
-          setIsLoading(false);
+      // 4. Listen for auth changes (login, logout, token refresh)
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session?.user) {
+          const user: User = {
+            id: session.user.id,
+            email: session.user.email || "",
+          };
+          setCurrentUser(user);
+          // If a new user signs in, or session is refreshed, update data
+          if (event === 'SIGNED_IN') {
+            await fetchUserData(user);
+          }
+        } else {
+          setCurrentUser(null);
+          setPuffs([]);
+          setSettings(null);
+          setIsAdmin(false);
         }
-      }
-    };
-    fetchData();
-  }, [currentUser]);
+      });
 
-  // Sync data
+      return subscription;
+    };
+
+    const authSubPromise = initializeAuth();
+
+    return () => {
+      authSubPromise.then(sub => sub?.unsubscribe());
+    };
+  }, [fetchUserData]);
+
+  // Realtime Subscription for Live Updates
   useEffect(() => {
-    if (currentUser && !isLoading) {
+    if (currentUser) {
+      const channel = dbService.subscribeToLogs(currentUser.id, () => fetchUserData(currentUser));
+      return () => {
+        channel.unsubscribe();
+      };
+    }
+  }, [currentUser, fetchUserData]);
+
+  // Sync settings when they change locally
+  useEffect(() => {
+    if (currentUser && !isBooting && !isLoadingData && settings) {
       dbService.syncData(currentUser, puffs, settings);
     }
-  }, [puffs, settings, currentUser, isLoading]);
+  }, [settings, currentUser, isBooting, isLoadingData, puffs]);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
-    sessionStorage.setItem('vapeless_session', JSON.stringify(user));
     soundService.play('success', true);
   };
 
@@ -94,7 +119,6 @@ const App: React.FC = () => {
     soundService.play('error', settings?.soundEnabled ?? true);
     await supabase.auth.signOut();
     setCurrentUser(null);
-    sessionStorage.removeItem('vapeless_session');
     setPuffs([]);
     setSettings(null);
     setIsAdmin(false);
@@ -134,6 +158,8 @@ const App: React.FC = () => {
       timestamp: Date.now(),
       count: 1
     };
+    
+    // Optimistic local update
     setPuffs(prev => [...prev, newPuff]);
     setIsAnimatePuff(true);
     setTimeout(() => setIsAnimatePuff(false), 200);
@@ -148,6 +174,28 @@ const App: React.FC = () => {
       window.navigator.vibrate(60);
     }
   }, [currentUser, settings]);
+
+  // Loading Screens
+  if (isBooting) {
+    return (
+      <div className="fixed inset-0 bg-white flex flex-col items-center justify-center p-6 font-mono text-center">
+        <div className="retro-border bg-black text-white p-6 max-w-xs space-y-4">
+          <div className="text-xl font-black italic tracking-tighter uppercase">BOOTING_SYSTEM...</div>
+          <div className="h-1 w-full bg-white/20 overflow-hidden">
+            <div className="h-full bg-white animate-[loading_2s_infinite]"></div>
+          </div>
+          <p className="text-[10px] font-black uppercase opacity-60">Initializing secure session vault</p>
+        </div>
+        <style>{`
+          @keyframes loading {
+            0% { width: 0%; }
+            50% { width: 100%; }
+            100% { width: 0%; }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   if (isUpdatingPassword) {
     return (
@@ -173,16 +221,16 @@ const App: React.FC = () => {
     );
   }
 
-  if (isLoading && currentUser) {
+  if (!currentUser) {
+    return <Auth onLogin={handleLogin} />;
+  }
+
+  if (isLoadingData && !settings) {
     return (
       <div className="fixed inset-0 bg-white flex flex-col items-center justify-center p-6 font-mono">
         <div className="text-xl font-black animate-pulse uppercase">Syncing_Global_State...</div>
       </div>
     );
-  }
-
-  if (!currentUser) {
-    return <Auth onLogin={handleLogin} />;
   }
 
   if (!settings) {
@@ -236,7 +284,7 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dash': return <Dashboard puffs={puffs} settings={settings} />;
+      case 'dash': return <Dashboard puffs={puffs} settings={settings} isAnimatePuff={isAnimatePuff} />;
       case 'health': return <div className="p-4 space-y-4"><HealthProgress quitDate={settings.quitDate} /></div>;
       case 'badges': return <Achievements puffs={puffs} settings={settings} />;
       case 'coach': return <AICoach settings={settings} puffs={puffs} />;

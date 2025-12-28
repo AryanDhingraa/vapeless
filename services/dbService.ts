@@ -1,5 +1,5 @@
 
-import { createClient, Provider } from "@supabase/supabase-js";
+import { createClient, Provider, RealtimeChannel } from "@supabase/supabase-js";
 import { User, PuffLog, UserSettings } from "../types.ts";
 
 const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || "";
@@ -86,6 +86,23 @@ export const dbService = {
     };
   },
 
+  // --- REALTIME ---
+  subscribeToLogs(userId: string, onUpdate: () => void): RealtimeChannel {
+    return supabase
+      .channel(`user-logs-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'logs', filter: `user_id=eq.${userId}` },
+        onUpdate
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
+        onUpdate
+      )
+      .subscribe();
+  },
+
   // --- ADMIN METHODS ---
   async adminGetAllProfiles(): Promise<any[]> {
     const { data, error } = await supabase
@@ -130,19 +147,22 @@ export const dbService = {
   // --- DATA SYNC ---
   async syncData(user: User, puffs: PuffLog[], settings: UserSettings | null): Promise<void> {
     if (!settings) return;
-    await supabase.from('profiles').upsert({ 
+    const { error } = await supabase.from('profiles').upsert({ 
       id: user.id, 
       email: user.email,
       settings: settings,
       updated_at: new Date().toISOString()
-    });
+    }, { onConflict: 'id' });
+    
+    if (error) console.error("Sync error:", error);
   },
 
   async savePuff(user: User, puff: PuffLog): Promise<void> {
-    await supabase.from('logs').insert({
+    const { error } = await supabase.from('logs').insert({
       user_id: user.id,
       timestamp: puff.timestamp,
       count: puff.count
     });
+    if (error) console.error("Log save error:", error);
   }
 };

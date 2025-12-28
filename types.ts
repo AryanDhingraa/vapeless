@@ -2,15 +2,15 @@
 export interface User {
   id: string;
   email: string;
-  password?: string; // In a real app, this would be hashed on the server
-  isAdmin?: boolean; // Field for checking admin status
+  password?: string;
+  isAdmin?: boolean;
 }
 
 export interface PuffLog {
   id: string;
   timestamp: number;
   count: number;
-  user_id?: string; // Added for admin view
+  user_id?: string;
 }
 
 export type PlanDuration = 15 | 20 | 30 | 60;
@@ -27,8 +27,8 @@ export interface UserSettings {
   isOnboarded: boolean;
   planDuration: PlanDuration;
   planStartDate: number | null;
-  isAdmin?: boolean; // New field for admin access
-  soundEnabled: boolean; // Toggle for retro SFX
+  isAdmin?: boolean;
+  soundEnabled: boolean;
 }
 
 export interface Achievement {
