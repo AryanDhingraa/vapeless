@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Dashboard } from './components/Dashboard.tsx';
 import { AICoach } from './components/AICoach.tsx';
@@ -8,7 +9,7 @@ import { Achievements } from './components/Achievements.tsx';
 import { Auth } from './components/Auth.tsx';
 import { AdminPanel } from './pages/AdminPanel.tsx';
 import { PuffLog, UserSettings, User } from './types.ts';
-import { dbService } from './services/dbService.ts';
+import { dbService, supabase } from './services/dbService.ts';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -19,16 +20,35 @@ const App: React.FC = () => {
   const [isAnimatePuff, setIsAnimatePuff] = useState(false);
   const [isWidgetMode, setIsWidgetMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-  // Load user from session if exists
+  // Handle Supabase Auth State and Recovery Flow
   useEffect(() => {
+    // Check URL for recovery type
+    const query = new URLSearchParams(window.location.search);
+    if (query.get('type') === 'recovery') {
+      setIsUpdatingPassword(true);
+    }
+
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        const user: User = {
+          id: session.user.id,
+          email: session.user.email || "",
+        };
+        setCurrentUser(user);
+        sessionStorage.setItem('vapeless_session', JSON.stringify(user));
+      } else {
+        setCurrentUser(null);
+        sessionStorage.removeItem('vapeless_session');
+      }
+    });
+
     const savedUser = sessionStorage.getItem('vapeless_session');
     if (savedUser) {
       try {
-        const user = JSON.parse(savedUser);
-        setCurrentUser(user);
+        setCurrentUser(JSON.parse(savedUser));
       } catch (e) {
-        console.error("Session parse error", e);
         setIsLoading(false);
       }
     } else {
@@ -36,7 +56,7 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Load User Specific Data from Cloud Service
+  // Load User Specific Data
   useEffect(() => {
     const fetchData = async () => {
       if (currentUser) {
@@ -56,7 +76,7 @@ const App: React.FC = () => {
     fetchData();
   }, [currentUser]);
 
-  // Sync data to database service whenever it changes
+  // Sync data
   useEffect(() => {
     if (currentUser && !isLoading) {
       dbService.syncData(currentUser, puffs, settings);
@@ -68,7 +88,8 @@ const App: React.FC = () => {
     sessionStorage.setItem('vapeless_session', JSON.stringify(user));
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setCurrentUser(null);
     sessionStorage.removeItem('vapeless_session');
     setPuffs([]);
@@ -81,6 +102,19 @@ const App: React.FC = () => {
     setSettings(newSettings);
     if (currentUser) {
       await dbService.syncData(currentUser, puffs, newSettings);
+    }
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const password = (e.currentTarget.elements.namedItem('new-password') as HTMLInputElement).value;
+    try {
+      await dbService.updatePassword(password);
+      alert('PASSWORD_UPDATED_SUCCESSFULLY');
+      setIsUpdatingPassword(false);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } catch (err) {
+      alert('PASSWORD_UPDATE_FAILED');
     }
   };
 
@@ -102,6 +136,30 @@ const App: React.FC = () => {
       window.navigator.vibrate(60);
     }
   }, [currentUser]);
+
+  if (isUpdatingPassword) {
+    return (
+      <div className="fixed inset-0 bg-white z-[300] flex flex-col items-center justify-center p-6 font-mono">
+        <div className="w-full max-w-sm retro-border bg-white shadow-[8px_8px_0px_#000]">
+          <div className="retro-window-header uppercase">Update_Security_Key</div>
+          <form onSubmit={handleUpdatePassword} className="p-6 space-y-4">
+            <div className="space-y-1">
+              <label className="text-[9px] font-black uppercase">New_Password</label>
+              <input 
+                name="new-password"
+                type="password" 
+                required
+                className="w-full border-4 border-black p-3 text-sm outline-none"
+                placeholder="********"
+              />
+            </div>
+            <button type="submit" className="w-full bg-black text-white py-4 font-black uppercase">Apply_Changes</button>
+            <button type="button" onClick={() => setIsUpdatingPassword(false)} className="w-full text-center text-[10px] font-black underline uppercase">Cancel</button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading && currentUser) {
     return (

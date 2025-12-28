@@ -1,8 +1,7 @@
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, Provider } from "@supabase/supabase-js";
 import { User, PuffLog, UserSettings } from "../types.ts";
 
-// Casting import.meta to any to resolve TS errors in Vite environment
 const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || "";
 const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || "";
 
@@ -14,7 +13,6 @@ export const dbService = {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error || !data.user) return null;
     
-    // Fetch profile to check admin status immediately
     const { data: profile } = await supabase
       .from('profiles')
       .select('is_admin')
@@ -37,6 +35,39 @@ export const dbService = {
     return { id: data.user.id, email: data.user.email || "" };
   },
 
+  async signInWithOAuth(provider: Provider) {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+    if (error) throw error;
+  },
+
+  async resetPassword(email: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}?type=recovery`,
+    });
+    if (error) throw error;
+  },
+
+  async updatePassword(password: string) {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw error;
+  },
+
+  async checkEmailExists(email: string): Promise<boolean> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email.toLowerCase())
+      .maybeSingle();
+    
+    if (error) return false;
+    return !!data;
+  },
+
   // --- DATA FETCHING ---
   async getUserData(user: User): Promise<{ puffs: PuffLog[], settings: UserSettings | null, isAdmin: boolean }> {
     const [profileRes, logsRes] = await Promise.all([
@@ -57,7 +88,6 @@ export const dbService = {
 
   // --- ADMIN METHODS ---
   async adminGetAllProfiles(): Promise<any[]> {
-    // Only fetch users who are not marked as deleted
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -89,7 +119,6 @@ export const dbService = {
   },
 
   async adminDeleteUser(userId: string): Promise<void> {
-    // Soft delete as requested: mark as deleted in the profiles table
     const { error } = await supabase
       .from('profiles')
       .update({ deleted: true })
