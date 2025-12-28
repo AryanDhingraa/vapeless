@@ -4,6 +4,7 @@ import { User } from '../types.ts';
 import { dbService } from '../services/dbService.ts';
 import { SocialAuth } from './SocialAuth.tsx';
 import { ForgotPassword } from './ForgotPassword.tsx';
+import { EmailVerification } from './EmailVerification.tsx';
 
 interface AuthProps {
   onLogin: (user: User) => void;
@@ -12,6 +13,7 @@ interface AuthProps {
 export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showForgot, setShowForgot] = useState(false);
+  const [showVerification, setShowVerification] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -74,7 +76,8 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
         const newUser = await dbService.signup(email, password);
         if (newUser) {
-          onLogin(newUser);
+          // Transition to OTP verification
+          setShowVerification(true);
         }
       }
     } catch (err: any) {
@@ -83,6 +86,22 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       setIsProcessing(false);
     }
   };
+
+  if (showVerification) return (
+    <div className="fixed inset-0 bg-white z-[200] flex flex-col items-center justify-center p-6 font-mono">
+      <div className="w-full max-w-sm retro-border shadow-[12px_12px_0px_#000]">
+        <div className="retro-window-header uppercase flex justify-between bg-black text-white px-3 py-2 text-[10px] font-black border-b-2 border-black">
+          <span>IDENTITY_VERIFY_MODE</span>
+          <i className="fas fa-shield-alt animate-pulse"></i>
+        </div>
+        <EmailVerification 
+          email={email} 
+          onVerified={(user) => onLogin(user)} 
+          onCancel={() => setShowVerification(false)} 
+        />
+      </div>
+    </div>
+  );
 
   if (showForgot) return (
     <div className="fixed inset-0 bg-white z-[200] flex flex-col items-center justify-center p-6 font-mono">
