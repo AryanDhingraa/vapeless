@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { UserSettings, PlanDuration } from '../types';
 import { soundService } from '../services/soundService';
@@ -19,46 +18,55 @@ export const Settings: React.FC<SettingsProps> = ({ settings, setSettings, onCle
   };
 
   return (
-    <div className="p-4 space-y-8 bg-white pb-32">
-      <div className="border-4 border-black p-2 bg-black text-white text-center font-black italic uppercase text-sm">
-        System Preferences
+    <div className="p-6 space-y-8 pb-40 animate-in fade-in duration-500 overflow-y-auto h-full scrollbar-hide">
+      <div className="flex justify-between items-end border-b border-white/10 pb-4">
+        <h1 className="text-3xl font-black italic tracking-tighter italic uppercase">IDENTITY_VAULT</h1>
+        <button onClick={onLogout} className="text-[10px] font-black opacity-40 uppercase underline hover:opacity-100 transition-opacity">Logout_OS</button>
       </div>
 
-      {/* IPHONE WIDGET GUIDE */}
-      <div className="retro-border bg-black text-white p-4">
-        <div className="text-[9px] font-black uppercase opacity-50 mb-2">IPHONE_WIDGET_GUIDE.DOC</div>
-        <div className="space-y-2 text-[10px] font-bold uppercase leading-tight">
-          <p>1. Open this page in Safari</p>
-          <p>2. Tap the Share icon (square with arrow)</p>
-          <p>3. Select "Add to Home Screen"</p>
-          <p>4. Use the "WIDGET" button in header for instant logging</p>
+      {/* Privacy Manifesto */}
+      <div className="glass-card p-6 space-y-4 border-white/20 bg-white/5">
+        <div className="flex items-center gap-2 text-indigo-400">
+          <i className="fas fa-user-shield text-xs"></i>
+          <span className="text-[10px] font-black uppercase tracking-widest mono">PRIVACY_PROTOCOL.DOC</span>
         </div>
+        <p className="text-[11px] font-bold opacity-50 uppercase leading-loose italic mono">
+          "OS_VAPELESS stores health and location telemetry purely for quitting research and the Vape Study. Data is anonymized and encrypted."
+        </p>
       </div>
 
-      <div className="retro-border bg-white overflow-hidden">
-        <div className="retro-window-header">HARDWARE_CONFIG.SYS</div>
-        <div className="p-4 space-y-4">
-          <div className="flex items-center justify-between border-b border-black pb-2">
-            <span className="text-[10px] font-bold uppercase">Audio Feedback</span>
+      {/* Hardware Config */}
+      <div className="glass-card overflow-hidden border-white/20">
+        <div className="bg-white/10 px-4 py-2 text-[10px] font-black uppercase mono flex justify-between">
+          <span>HARDWARE_CONFIG.SYS</span>
+          <i className="fas fa-cog"></i>
+        </div>
+        <div className="p-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-white/10 pb-4">
+            <span className="text-[11px] font-black uppercase">Audio Feedback</span>
             <button 
               onClick={() => handleChange('soundEnabled', !settings.soundEnabled)}
-              className={`text-[9px] font-black border-2 border-black px-3 py-1 uppercase ${settings.soundEnabled ? 'bg-black text-white' : 'bg-white text-black'}`}
+              className={`text-[10px] font-black px-4 py-2 rounded-xl transition-all border border-white/10 ${settings.soundEnabled ? 'bg-white text-black' : 'bg-transparent text-white opacity-40'}`}
             >
-              {settings.soundEnabled ? 'ON' : 'OFF'}
+              {settings.soundEnabled ? 'ENABLED' : 'MUTED'}
             </button>
           </div>
         </div>
       </div>
 
-      <div className="retro-border bg-white overflow-hidden">
-        <div className="retro-window-header">PLAN_MODIFIER.EXE</div>
-        <div className="p-4 space-y-4">
-          <div className="flex items-center justify-between border-b border-black pb-2">
-            <span className="text-[10px] font-bold uppercase">Plan Type</span>
+      {/* Plan Params */}
+      <div className="glass-card overflow-hidden border-white/20">
+        <div className="bg-white/10 px-4 py-2 text-[10px] font-black uppercase mono flex justify-between">
+          <span>PLAN_MODIFIER.EXE</span>
+          <i className="fas fa-sliders-h"></i>
+        </div>
+        <div className="p-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-white/10 pb-4">
+            <span className="text-[11px] font-black uppercase">Intensity Level</span>
             <select 
               value={settings.planDuration} 
               onChange={e => handleChange('planDuration', parseInt(e.target.value) as PlanDuration)}
-              className="font-black text-[10px] outline-none bg-white"
+              className="font-black text-[11px] outline-none bg-black text-indigo-400 p-2 rounded-lg border border-white/10"
             >
               <option value={15}>15_DAY_HARD</option>
               <option value={20}>20_DAY_FAST</option>
@@ -66,39 +74,27 @@ export const Settings: React.FC<SettingsProps> = ({ settings, setSettings, onCle
               <option value={60}>60_DAY_GENTLE</option>
             </select>
           </div>
-          <div className="flex items-center justify-between border-b border-black pb-2">
-            <span className="text-[10px] font-bold uppercase">Starting Puffs</span>
-            <input type="number" value={settings.dailyBudget} onChange={(e) => handleChange('dailyBudget', parseInt(e.target.value))} className="w-16 text-right font-black outline-none" />
-          </div>
-        </div>
-      </div>
-      
-      <div className="retro-border bg-white overflow-hidden">
-        <div className="retro-window-header">ECON_PARAMS.CFG</div>
-        <div className="p-4 space-y-4">
-          <div className="flex items-center justify-between border-b border-black pb-2">
-            <span className="text-[10px] font-bold uppercase">Unit Price ({settings.currency})</span>
-            <input type="number" value={settings.podCost} onChange={(e) => handleChange('podCost', parseFloat(e.target.value))} className="w-16 text-right font-black outline-none" />
-          </div>
-          <div className="flex items-center justify-between border-b border-black pb-2">
-            <span className="text-[10px] font-bold uppercase">Unit Capacity</span>
-            <input type="number" value={settings.puffsPerPod} onChange={(e) => handleChange('puffsPerPod', parseInt(e.target.value))} className="w-16 text-right font-black outline-none" />
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-black uppercase">Daily Budget</span>
+            <input 
+              type="number" 
+              value={settings.dailyBudget} 
+              onChange={(e) => handleChange('dailyBudget', parseInt(e.target.value))} 
+              className="w-20 text-right font-black bg-transparent border-b border-white/20 outline-none text-indigo-400" 
+            />
           </div>
         </div>
       </div>
 
-      <div className="space-y-3">
-        <button onClick={onLogout} className="w-full py-4 border-4 border-black font-black hover:bg-black hover:text-white transition-all active:scale-95 uppercase text-xs">
-          Logout_Session
+      {/* Data Destruction */}
+      <div className="pt-4 space-y-4">
+        <button onClick={onClearData} className="w-full py-5 glass-card text-red-500/80 border-red-500/20 font-black hover:bg-red-500/10 transition-colors uppercase text-xs tracking-widest">
+          <i className="fas fa-trash-alt mr-2"></i> Wipe_Account_Data
         </button>
-        <button onClick={onClearData} className="w-full py-4 bg-black text-white font-black hover:invert transition-all active:scale-95 uppercase text-xs">
-          Wipe_Account_Data
-        </button>
-      </div>
-
-      <div className="text-center font-mono text-[8px] uppercase opacity-40">
-        <p>VapeLess Retro v1.2.1-LTS</p>
-        <p>SECURE_AUTH_LAYER_ACTIVE</p>
+        <div className="text-center font-mono text-[8px] uppercase opacity-20 py-4 tracking-[0.4em]">
+          VapeLess_NeoRetro_OS v3.0.1-LTS<br/>
+          SECURE_AUTH_LAYER_ACTIVE
+        </div>
       </div>
     </div>
   );

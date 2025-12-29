@@ -1,9 +1,12 @@
-
 export interface User {
   id: string;
   email: string;
-  password?: string;
   isAdmin?: boolean;
+}
+
+export interface Location {
+  lat: number;
+  lng: number;
 }
 
 export interface PuffLog {
@@ -11,11 +14,20 @@ export interface PuffLog {
   timestamp: number;
   count: number;
   user_id?: string;
+  type: 'vape' | 'tobacco';
+  location?: Location;
 }
 
 export type PlanDuration = 15 | 20 | 30 | 60;
 
 export interface UserSettings {
+  username: string;
+  avatar?: string;
+  dob?: string;
+  age?: number;
+  gender?: string;
+  substance_preference: 'vape' | 'tobacco' | 'dual';
+  tokens: number;
   podCost: number;
   puffsPerPod: number;
   dailyBudget: number;

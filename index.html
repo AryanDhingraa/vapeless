@@ -7,98 +7,109 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3256/3256157.png">
-    <title>VapeLess - Admin Console</title>
+    <title>VapeLess_OS - Neo-Retro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;700;900&display=swap');
         
         :root {
             --retro-black: #000000;
             --retro-white: #ffffff;
-            --retro-gray: #e2e2e2;
+            --vape-accent: #a5b4fc;
+            --tobacco-accent: #fbbf24;
+            --glass-bg: rgba(10, 10, 10, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.1);
         }
 
         body {
-            font-family: 'Space Mono', 'Courier New', monospace;
-            background-color: var(--retro-white);
-            color: var(--retro-black);
+            font-family: 'Inter', sans-serif;
+            background-color: var(--retro-black);
+            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+            color: var(--retro-white);
             -webkit-tap-highlight-color: transparent;
             margin: 0;
             padding: 0;
-            overflow-x: hidden;
+            overflow: hidden;
             height: 100vh;
             width: 100vw;
         }
 
-        #root {
-            height: 100%;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
+        .mono { font-family: 'Space Mono', monospace; }
+
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
         }
 
-        .retro-border {
-            border: 2px solid var(--retro-black);
-            box-shadow: 4px 4px 0px var(--retro-black);
+        .neo-btn {
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+        }
+        .neo-btn:active { transform: scale(0.92); }
+
+        .vape-gradient {
+            background: linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%);
+            color: black;
         }
 
-        .retro-window-header {
-            background: var(--retro-black);
-            color: var(--retro-white);
-            padding: 4px 8px;
-            font-weight: bold;
-            font-size: 0.75rem;
-            text-transform: uppercase;
+        .tobacco-gradient {
+            background: linear-gradient(135deg, #fbbf24 0%, #78350f 100%);
+            color: black;
         }
 
-        @keyframes flicker {
-          0% { opacity: 0.97; }
-          5% { opacity: 0.95; }
-          10% { opacity: 0.9; }
-          15% { opacity: 0.98; }
-          100% { opacity: 1; }
+        @keyframes glitch-anim {
+            0% { transform: translate(0); clip-path: inset(0% 0% 0% 0%); }
+            20% { transform: translate(-3px, 3px); clip-path: inset(10% 0% 50% 0%); }
+            40% { transform: translate(3px, -3px); clip-path: inset(50% 0% 10% 0%); }
+            60% { transform: translate(-3px, 3px); clip-path: inset(30% 0% 20% 0%); }
+            80% { transform: translate(3px, -3px); clip-path: inset(0% 0% 70% 0%); }
+            100% { transform: translate(0); clip-path: inset(0% 0% 0% 0%); }
         }
 
-        .crt-overlay::after {
-            content: " ";
-            display: block;
+        .glitch-active {
+            animation: glitch-anim 0.15s infinite;
+            background: #ff0000 !important;
+            color: white !important;
+        }
+
+        .crt-scanlines::after {
+            content: "";
             position: fixed;
             top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.05) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 150, 0.02));
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
             z-index: 9999;
-            background-size: 100% 2px, 3px 100%;
+            background-size: 100% 3px, 3px 100%;
             pointer-events: none;
-            animation: flicker 0.15s infinite;
         }
 
-        .safe-bottom {
-            padding-bottom: env(safe-area-inset-bottom);
+        .scrollbar-hide::-webkit-scrollbar { width: 0; height: 0; }
+        
+        @keyframes shake {
+          0% { transform: translate(1px, 1px) rotate(0deg); }
+          10% { transform: translate(-1px, -2px) rotate(-1deg); }
+          20% { transform: translate(-3px, 0px) rotate(1deg); }
+          30% { transform: translate(3px, 2px) rotate(0deg); }
+          40% { transform: translate(1px, -1px) rotate(1deg); }
+          50% { transform: translate(-1px, 2px) rotate(-1deg); }
+          60% { transform: translate(-3px, 1px) rotate(0deg); }
+          70% { transform: translate(3px, 1px) rotate(-1deg); }
+          80% { transform: translate(-1px, -1px) rotate(1deg); }
+          90% { transform: translate(1px, 2px) rotate(0deg); }
+          100% { transform: translate(1px, -2px) rotate(-1deg); }
         }
-
-        /* Custom scrollbar for retro look */
-        ::-webkit-scrollbar {
-          width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-          background: #fff;
-          border-left: 2px solid #000;
-        }
-        ::-webkit-scrollbar-thumb {
-          background: #000;
+        
+        .shake-active {
+          animation: shake 0.5s;
+          animation-iteration-count: infinite;
         }
     </style>
-    <script>
-      // Mock process object for libraries that expect Node-like environment
-      // REPLACE THESE WITH YOUR ACTUAL SUPABASE KEYS IN YOUR DEPLOYMENT SETTINGS
-      window.process = { 
-        env: { 
-          API_KEY: "",
-          SUPABASE_URL: "",
-          SUPABASE_ANON_KEY: ""
-        } 
-      };
-    </script>
     <script type="importmap">
 {
   "imports": {
@@ -113,7 +124,7 @@
 }
 </script>
 </head>
-<body class="crt-overlay">
+<body class="crt-scanlines">
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
 </body>

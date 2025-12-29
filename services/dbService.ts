@@ -1,77 +1,46 @@
 
-import { createClient, Provider, RealtimeChannel } from "@supabase/supabase-js";
+import { createClient, Provider } from "@supabase/supabase-js";
 import { User, PuffLog, UserSettings } from "../types.ts";
 
-const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || "";
-const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || "";
+// Note: In production, these should be supplied via process.env.
+// For the sandbox, placeholder keys will be manually updated by the user.
+const supabaseUrl = process.env.SUPABASE_URL || "https://placeholder.supabase.co";
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || "placeholder";
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const dbService = {
-  // --- AUTHENTICATION ---
   async login(email: string, password: string): Promise<User | null> {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error || !data.user) return null;
-    
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .eq('id', data.user.id)
-      .single();
-
-    return { 
-      id: data.user.id, 
-      email: data.user.email || "",
-      isAdmin: profile?.is_admin || false
-    };
+    return { id: data.user.id, email: data.user.email || "" };
   },
 
   async signup(email: string, password: string): Promise<User | null> {
     const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error || !data.user) {
-      if (error?.message?.includes("already registered")) throw new Error("USER_EXISTS");
-      throw error;
-    }
+    if (error || !data.user) throw error;
     return { id: data.user.id, email: data.user.email || "" };
   },
 
+  // Added signInWithOAuth to handle social login providers like Google, Apple, etc.
   async signInWithOAuth(provider: Provider) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: window.location.origin,
-      },
+        redirectTo: window.location.origin
+      }
     });
-    if (error) throw error;
-  },
-
-  async resetPassword(email: string) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}?type=recovery`,
-    });
-    if (error) throw error;
-  },
-
-  async updatePassword(password: string) {
-    const { error } = await supabase.auth.updateUser({ password });
     if (error) throw error;
   },
 
   async checkEmailExists(email: string): Promise<boolean> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', email.toLowerCase())
-      .maybeSingle();
-    
-    if (error) return false;
+    const { data } = await supabase.from('profiles').select('email').eq('email', email).maybeSingle();
     return !!data;
   },
 
-  // --- DATA FETCHING ---
   async getUserData(user: User): Promise<{ puffs: PuffLog[], settings: UserSettings | null, isAdmin: boolean }> {
     const [profileRes, logsRes] = await Promise.all([
-      supabase.from('profiles').select('settings, is_admin').eq('id', user.id).single(),
+      supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
       supabase.from('logs').select('*').eq('user_id', user.id).order('timestamp', { ascending: true })
     ]);
 
@@ -81,88 +50,77 @@ export const dbService = {
       puffs: logsRes.data?.map(log => ({
         id: log.id,
         timestamp: Number(log.timestamp),
-        count: log.count
+        count: log.count,
+        type: log.type || 'vape',
+        location: log.location
       })) || []
     };
   },
 
-  // --- REALTIME ---
-  subscribeToLogs(userId: string, onUpdate: () => void): RealtimeChannel {
-    return supabase
-      .channel(`user-logs-${userId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'logs', filter: `user_id=eq.${userId}` },
-        onUpdate
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
-        onUpdate
-      )
-      .subscribe();
-  },
-
-  // --- ADMIN METHODS ---
-  async adminGetAllProfiles(): Promise<any[]> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .or('deleted.is.null,deleted.eq.false')
-      .order('updated_at', { ascending: false });
-    
-    if (error) throw error;
-    return data || [];
-  },
-
-  async adminGetAllLogs(): Promise<any[]> {
-    const { data, error } = await supabase
-      .from('logs')
-      .select('*, profiles(email)')
-      .order('timestamp', { ascending: false })
-      .limit(1000);
-    
-    if (error) throw error;
-    return data || [];
-  },
-
-  async adminToggleAdminStatus(userId: string, isAdmin: boolean): Promise<void> {
-    const { error } = await supabase
-      .from('profiles')
-      .update({ is_admin: isAdmin })
-      .eq('id', userId);
-    
-    if (error) throw error;
-  },
-
-  async adminDeleteUser(userId: string): Promise<void> {
-    const { error } = await supabase
-      .from('profiles')
-      .update({ deleted: true })
-      .eq('id', userId);
-    
-    if (error) throw error;
-  },
-
-  // --- DATA SYNC ---
   async syncData(user: User, puffs: PuffLog[], settings: UserSettings | null): Promise<void> {
     if (!settings) return;
     const { error } = await supabase.from('profiles').upsert({ 
       id: user.id, 
       email: user.email,
       settings: settings,
+      onboarding_complete: settings.isOnboarded,
+      substance_preference: settings.substance_preference,
       updated_at: new Date().toISOString()
     }, { onConflict: 'id' });
-    
     if (error) console.error("Sync error:", error);
   },
 
-  async savePuff(user: User, puff: PuffLog): Promise<void> {
+  async saveLog(user: User, log: PuffLog): Promise<void> {
     const { error } = await supabase.from('logs').insert({
       user_id: user.id,
-      timestamp: puff.timestamp,
-      count: puff.count
+      timestamp: log.timestamp,
+      count: log.count,
+      type: log.type,
+      location: log.location
     });
-    if (error) console.error("Log save error:", error);
+    if (error) console.error("Log error:", error);
+  },
+
+  async useToken(userId: string, currentSettings: UserSettings): Promise<boolean> {
+    const newTokens = Math.max(0, currentSettings.tokens - 1);
+    const { error } = await supabase.from('profiles').update({
+      settings: { ...currentSettings, tokens: newTokens }
+    }).eq('id', userId);
+    return !error;
+  },
+
+  async resetPassword(email: string): Promise<void> {
+    await supabase.auth.resetPasswordForEmail(email);
+  },
+
+  async getLeaderboard(): Promise<any[]> {
+    const { data } = await supabase
+      .from('profiles')
+      .select('settings->username, settings->tokens')
+      .eq('onboarding_complete', true)
+      .limit(10);
+    return data || [];
+  },
+
+  async adminGetAllProfiles(): Promise<any[]> {
+    const { data, error } = await supabase.from('profiles').select('*');
+    if (error) throw error;
+    return data || [];
+  },
+
+  async adminGetAllLogs(): Promise<any[]> {
+    const { data, error } = await supabase.from('logs').select('*, profiles(email)').order('timestamp', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async adminToggleAdminStatus(userId: string, isAdmin: boolean): Promise<void> {
+    const { error } = await supabase.from('profiles').update({ is_admin: isAdmin }).eq('id', userId);
+    if (error) throw error;
+  },
+
+  async adminDeleteUser(userId: string): Promise<void> {
+    const { error } = await supabase.from('profiles').update({ is_deleted: true }).eq('id', userId);
+    if (error) throw error;
   }
 };

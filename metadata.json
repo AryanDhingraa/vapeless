@@ -1,7 +1,8 @@
 {
-  "name": "VapeLess - Quit Tracker",
-  "description": "A comprehensive vape puff counter and quitting assistant designed to help you track usage, save money, and improve your health through AI-powered coaching.",
+  "name": "VapeLess - Neo-Retro OS",
+  "description": "A premium quitting system combining monochrome terminal aesthetics with modern behavioral tracking and pattern mapping.",
   "requestFramePermissions": [
-    "microphone"
+    "microphone",
+    "geolocation"
   ]
 }
