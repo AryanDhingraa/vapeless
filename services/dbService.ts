@@ -1,19 +1,32 @@
-
 import { createClient, Provider } from "@supabase/supabase-js";
 import { User, PuffLog, UserSettings } from "../types.ts";
 
-// Note: In production, these should be supplied via process.env.
-// For the sandbox, placeholder keys will be manually updated by the user.
-const supabaseUrl = process.env.SUPABASE_URL || "https://placeholder.supabase.co";
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || "placeholder";
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Check for missing configuration
+if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes("placeholder")) {
+  console.warn("SUPABASE_CONFIG_MISSING: The application is running in unconfigured mode. Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables.");
+}
+
+export const supabase = createClient(
+  supabaseUrl || "https://placeholder.supabase.co", 
+  supabaseAnonKey || "placeholder"
+);
 
 export const dbService = {
   async login(email: string, password: string): Promise<User | null> {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error || !data.user) return null;
-    return { id: data.user.id, email: data.user.email || "" };
+    
+    // Check if user is admin
+    const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', data.user.id).single();
+    
+    return { 
+      id: data.user.id, 
+      email: data.user.email || "",
+      isAdmin: !!profile?.is_admin
+    };
   },
 
   async signup(email: string, password: string): Promise<User | null> {
@@ -22,7 +35,6 @@ export const dbService = {
     return { id: data.user.id, email: data.user.email || "" };
   },
 
-  // Added signInWithOAuth to handle social login providers like Google, Apple, etc.
   async signInWithOAuth(provider: Provider) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
@@ -38,7 +50,7 @@ export const dbService = {
     return !!data;
   },
 
-  async getUserData(user: User): Promise<{ puffs: PuffLog[], settings: UserSettings | null, isAdmin: boolean }> {
+  async getUserData(user: User): Promise<{ puffs: PuffLog[], settings: UserSettings | null, isAdmin: boolean, themePreference: 'light' | 'dark' }> {
     const [profileRes, logsRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
       supabase.from('logs').select('*').eq('user_id', user.id).order('timestamp', { ascending: true })
@@ -47,6 +59,7 @@ export const dbService = {
     return {
       settings: profileRes.data?.settings || null,
       isAdmin: !!profileRes.data?.is_admin,
+      themePreference: profileRes.data?.theme_preference || 'light',
       puffs: logsRes.data?.map(log => ({
         id: log.id,
         timestamp: Number(log.timestamp),
@@ -68,6 +81,11 @@ export const dbService = {
       updated_at: new Date().toISOString()
     }, { onConflict: 'id' });
     if (error) console.error("Sync error:", error);
+  },
+
+  async updateThemePreference(userId: string, theme: 'light' | 'dark'): Promise<void> {
+    const { error } = await supabase.from('profiles').update({ theme_preference: theme }).eq('id', userId);
+    if (error) console.error("Theme preference error:", error);
   },
 
   async saveLog(user: User, log: PuffLog): Promise<void> {
